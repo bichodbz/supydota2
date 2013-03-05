@@ -100,7 +100,16 @@ class DotaApi():
         """gets all the heroes from steam"""
         query = "https://api.steampowered.com/IEconDOTA2_570/GetHeroes/v0001/?language=en_us&key=%s" % self.apiKey
         return self._webcall(query)
+   
+    def getPlayerBySteam64(self,steam64):
+        """queries steam for this guy and returns it's full data"""
+        query = "http://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?steamids=%s&key=%s" % (steam64,self.apiKey)
+        return self._webcall(query)
     
+    def getPlayerBySteam32(self,steam32):
+        """transforms the steam32 into steam64 and uses getPlayerBySteam64"""
+        return self.getPlayerBySteam64(steam32+self.magicNumber)
+ 
     def getPlayerByName(self,vanityName):
         """gets the player like a champ"""
         query = "http://api.steampowered.com/ISteamUser/ResolveVanityURL/v0001/?key=%s&vanityurl=%s" % (self.apiKey,vanityName)
@@ -160,6 +169,21 @@ class DotaDB:
         if not player:
            player = self.createPlayer(vanityName) 
         return int(player["steam32"])
+
+    def steam32ToVanity(self,steam32,useApi=True):
+        """ returns the vanity name of someone """
+        if steam32 == 4294967295:
+            return "Unknown"
+        name = self.players.find_one({"steam32": steam32})
+        if name:
+            return name["name"]
+        if not useApi:
+            return False
+        apiName = self.dotaApi.getPlayerBySteam32(steam32)
+        if apiName:
+            return apiName["response"]["players"][0]["personaname"]
+        else:
+            return False
 
     def heroIdtoName(self,id):
         """fetches heroes from the database"""
@@ -284,7 +308,11 @@ class Dota2(callbacks.Plugin):
                     if pl["account_id"] == steam32:
                         break;
                 bando = "The Dire" if pl["player_slot"] > 10 else "Radiant"
-                irc.reply("Match Id %s as %s playing for %s at %s" % (item["match_id"],self.dotaDB.heroIdtoName(pl["hero_id"]),bando,time.ctime(item["start_time"])))
+                irc.reply("Match Id %s as %s playing for %s at %s" % 
+                (
+                item["match_id"],self.dotaDB.heroIdtoName(pl["hero_id"]),
+                bando,time.ctime(item["start_time"]))
+                )
             else:
                 irc.reply("GG: %s" % item["match_id"])
     getmatches = wrap(getmatches,['text'])
@@ -375,13 +403,22 @@ class Dota2(callbacks.Plugin):
         for i in mostPlayed:
             if mostPlayed[i] > mostPlayed[mPlayed]:
                 mPlayed = i
-        irc.reply("KD: %.2f | (Avg)K/D/A:  %.1f/%.1f/%.1f | K+A/D: %f" % (kills/deaths,kills/fullGames.count(),deaths/fullGames.count(),assists/fullGames.count(),(kills+assists)/deaths))
+        irc.reply("KD: %.2f | (Avg)K/D/A:  %.1f/%.1f/%.1f | K+A/D: %f" % 
+        (
+        kills/deaths, kills/fullGames.count(), deaths/fullGames.count(),
+        assists/fullGames.count(),(kills+assists)/deaths)
+        )
         irc.reply("Heroe Mas jugado %s (%s veces)" % (self.dotaDB.heroIdtoName(mPlayed),mostPlayed[mPlayed]))
-        irc.reply("The Dire: %s (%s wins %s%%), The Radiant: %s (%s wins %s%%), Wins %s, Loses %s" % (bando["dire"],dire_win,dire_win * 100 / bando["dire"],bando["radiant"],radiant_win,radiant_win * 100 / bando["radiant"],dire_win+radiant_win,fullGames.count()-(dire_win+radiant_win)))
+        irc.reply("The Dire: %s (%s wins %s%%), The Radiant: %s (%s wins %s%%), Wins %s, Loses %s" % 
+        (
+        bando["dire"],dire_win,dire_win * 100 / bando["dire"],
+        bando["radiant"],radiant_win,radiant_win * 100 / bando["radiant"],
+        dire_win+radiant_win,fullGames.count()-(dire_win+radiant_win))
+        )
         irc.reply("Quiteo %s veces" % quits)
     pstat = wrap(pstat,["text"])
 
-    def mstats(self,irc,msg,args,matchNum,vanityName):
+    def mpstats(self,irc,msg,args,matchNum,vanityName):
         """ use with the number of the match and steamname to get your info on the match"""
         vanityName = vanityName.lower()
         try:
@@ -426,9 +463,13 @@ class Dota2(callbacks.Plugin):
 #            talents = {"3":"Q","6":"Ulti","2":"Stats","4":"W","5":"E"}
 #            talentList = [ talents[str(x["ability"])[3]] for x in player["ability_upgrades"]]
 #            irc.reply("Talenteo %s" % ",".join(talentList))
-        irc.reply("K/D/A: %s/%s/%s, LastHits: %s, Denies: %s" % (player["kills"],player["deaths"],player["assists"],player["last_hits"],player["denies"]))
+        irc.reply("K/D/A: %s/%s/%s, LastHits: %s, Denies: %s" % ( player["kills"], player["deaths"], player["assists"], player["last_hits"], player["denies"]))
         irc.reply("GPM: %s, XP/m: %s, G Spt %s, G Rem: %s" % (player["gold_per_min"],player["xp_per_min"],player["gold_spent"],player["gold"]))
-        irc.reply("Dmg(Hero): %s (%s%%) , Dmg(Twr): %s (%s%%), Heal: %s (%s%%)" % (player["hero_damage"],heroDamagePct,player["tower_damage"],towerDamagePct,player["hero_healing"],healingPct))
+        irc.reply("Dmg(Hero): %s (%s%%) , Dmg(Twr): %s (%s%%), Heal: %s (%s%%)" % 
+        (
+        player["hero_damage"],heroDamagePct,player["tower_damage"],
+        towerDamagePct,player["hero_healing"],healingPct)
+        )
         if match["radiant_win"]:
             if bando == "The Radiant":
                 irc.reply("La Hizo!")
@@ -441,7 +482,39 @@ class Dota2(callbacks.Plugin):
                 irc.reply("La Hizo!")
         if player["leaver_status"] == 2:
             irc.reply("Y ENCIMA QUITEO!!!")
-    mstats = wrap(mstats,["anything","text"])
+    mpstats = wrap(mpstats,["anything","text"])
+
+    def mstats(self,irc,msg,args,matchNum):
+        """ get stats of a match """
+        try:
+            match = self.dotaDB.getMatch(matchNum)
+        except Dota2Error as e:
+            irc.reply("Error: %s" % e.msg)
+            raise
+        radiantList = [x for x in match["players"] if x["player_slot"] < 10]
+        direList = [x for x in match["players"] if x["player_slot"] > 10]
+        knownList = [x for x in match["players"] if self.dotaDB.steam32ToVanity(x["account_id"],False)]
+        irc.reply("Dire: %s(%s),%s(%s),%s(%s),%s(%s),%s(%s)" % (
+        self.dotaDB.steam32ToVanity(direList[0]["account_id"]),self.dotaDB.heroIdtoName(direList[0]["hero_id"]),
+        self.dotaDB.steam32ToVanity(direList[1]["account_id"]),self.dotaDB.heroIdtoName(direList[1]["hero_id"]),
+        self.dotaDB.steam32ToVanity(direList[2]["account_id"]),self.dotaDB.heroIdtoName(direList[2]["hero_id"]),
+        self.dotaDB.steam32ToVanity(direList[3]["account_id"]),self.dotaDB.heroIdtoName(direList[3]["hero_id"]),
+        self.dotaDB.steam32ToVanity(direList[4]["account_id"]),self.dotaDB.heroIdtoName(direList[4]["hero_id"])
+        ))
+        irc.reply("Radiant: %s(%s),%s(%s),%s(%s),%s(%s),%s(%s)" % (
+        self.dotaDB.steam32ToVanity(radiantList[0]["account_id"]),self.dotaDB.heroIdtoName(radiantList[0]["hero_id"]),
+        self.dotaDB.steam32ToVanity(radiantList[1]["account_id"]),self.dotaDB.heroIdtoName(radiantList[1]["hero_id"]),
+        self.dotaDB.steam32ToVanity(radiantList[2]["account_id"]),self.dotaDB.heroIdtoName(radiantList[2]["hero_id"]),
+        self.dotaDB.steam32ToVanity(radiantList[3]["account_id"]),self.dotaDB.heroIdtoName(radiantList[3]["hero_id"]),
+        self.dotaDB.steam32ToVanity(radiantList[4]["account_id"]),self.dotaDB.heroIdtoName(radiantList[4]["hero_id"])
+        ))
+        reply = ""
+        for x in knownList:
+            reply += "%s: %s/%s/%s  "  % (self.dotaDB.steam32ToVanity(x["account_id"]),x["kills"],x["deaths"],x["assists"])
+        irc.reply(reply)
+    mstats = wrap(mstats,["anything"])
 Class = Dota2
+
+    
 
 # vim:set shiftwidth=4 softtabstop=4 expandtab textwidth=09274234:
