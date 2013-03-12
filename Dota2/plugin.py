@@ -360,9 +360,9 @@ class Dota2(callbacks.Plugin):
         irc.reply("Vole todos los games, addjob %s para que los baje denuevo" % vanityName)
     nukegames = wrap(nukegames,["text"])
 
-    def pstat(self,irc,msg,args,vanityName):
-        """ pstat vanityName 
-            player Stats"""
+    def player(self,irc,msg,args,vanityName):
+        """ player vanityName 
+            player's Stats"""
         vanityName = vanityName.lower()
         try:
             steam32 = self.dotaDB.vanityTo32(vanityName)
@@ -416,9 +416,9 @@ class Dota2(callbacks.Plugin):
         dire_win+radiant_win,fullGames.count()-(dire_win+radiant_win))
         )
         irc.reply("Quiteo %s veces" % quits)
-    pstat = wrap(pstat,["text"])
+    player = wrap(player,["text"])
 
-    def mpstats(self,irc,msg,args,matchNum,vanityName):
+    def matchpov(self,irc,msg,args,matchNum,vanityName):
         """ use with the number of the match and steamname to get your info on the match"""
         vanityName = vanityName.lower()
         try:
@@ -482,9 +482,9 @@ class Dota2(callbacks.Plugin):
                 irc.reply("La Hizo!")
         if player["leaver_status"] == 2:
             irc.reply("Y ENCIMA QUITEO!!!")
-    mpstats = wrap(mpstats,["anything","text"])
+    matchpov = wrap(matchpov,["anything","text"])
 
-    def mstats(self,irc,msg,args,matchNum):
+    def match(self,irc,msg,args,matchNum):
         """ get stats of a match """
         try:
             match = self.dotaDB.getMatch(matchNum)
@@ -512,7 +512,7 @@ class Dota2(callbacks.Plugin):
         for x in knownList:
             reply += "%s: %s/%s/%s  "  % (self.dotaDB.steam32ToVanity(x["account_id"]),x["kills"],x["deaths"],x["assists"])
         irc.reply(reply)
-    mstats = wrap(mstats,["anything"])
+    match = wrap(match,["anything"])
 Class = Dota2
 
     
