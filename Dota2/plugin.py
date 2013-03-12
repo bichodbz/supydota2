@@ -322,7 +322,7 @@ class Dota2(callbacks.Plugin):
         vanityName = vanityName.lower()
         for x in self.jobs:
             if x.getName() == vanityName:
-                if x.isALive():
+                if x.isAlive():
                     irc.reply("job already running")
                     return True
                 else:
